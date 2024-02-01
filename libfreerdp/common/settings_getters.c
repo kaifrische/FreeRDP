@@ -573,6 +573,9 @@ BOOL freerdp_settings_get_bool(const rdpSettings* settings, FreeRDP_Settings_Key
 		case FreeRDP_SuspendInput:
 			return settings->SuspendInput;
 
+		case FreeRDP_SynchronousDynamicChannels:
+			return settings->SynchronousDynamicChannels;
+
 		case FreeRDP_TcpKeepAlive:
 			return settings->TcpKeepAlive;
 
@@ -1328,6 +1331,10 @@ BOOL freerdp_settings_set_bool(rdpSettings* settings, FreeRDP_Settings_Keys_Bool
 
 		case FreeRDP_SuspendInput:
 			settings->SuspendInput = cnv.c;
+			break;
+
+		case FreeRDP_SynchronousDynamicChannels:
+			settings->SynchronousDynamicChannels = cnv.c;
 			break;
 
 		case FreeRDP_TcpKeepAlive:
@@ -2613,6 +2620,9 @@ const char* freerdp_settings_get_string(const rdpSettings* settings,
 
 	switch (id)
 	{
+		case FreeRDP_AadServerHostname:
+			return settings->AadServerHostname;
+
 		case FreeRDP_AcceptedCert:
 			return settings->AcceptedCert;
 
@@ -2919,6 +2929,9 @@ char* freerdp_settings_get_string_writable(rdpSettings* settings, FreeRDP_Settin
 
 	switch (id)
 	{
+		case FreeRDP_AadServerHostname:
+			return settings->AadServerHostname;
+
 		case FreeRDP_AcceptedCert:
 			return settings->AcceptedCert;
 
@@ -3235,6 +3248,9 @@ BOOL freerdp_settings_set_string_(rdpSettings* settings, FreeRDP_Settings_Keys_S
 
 	switch (id)
 	{
+		case FreeRDP_AadServerHostname:
+			return update_string_(&settings->AadServerHostname, cnv.c, len);
+
 		case FreeRDP_AcceptedCert:
 			return update_string_(&settings->AcceptedCert, cnv.c, len);
 
@@ -3566,6 +3582,9 @@ BOOL freerdp_settings_set_string_copy_(rdpSettings* settings, FreeRDP_Settings_K
 
 	switch (id)
 	{
+		case FreeRDP_AadServerHostname:
+			return update_string_copy_(&settings->AadServerHostname, cnv.cc, len, cleanup);
+
 		case FreeRDP_AcceptedCert:
 			return update_string_copy_(&settings->AcceptedCert, cnv.cc, len, cleanup);
 

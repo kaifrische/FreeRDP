@@ -308,66 +308,122 @@ static void freerdp_client_print_scancodes(void)
 	}
 }
 
-static BOOL is_delimiter(const char* delimiters, char c)
+static BOOL is_delimiter(char c, const char* delimiters)
 {
 	char d;
 	while ((d = *delimiters++) != '\0')
 	{
-		if (d == c)
+		if (c == d)
 			return TRUE;
 	}
 	return FALSE;
 }
 
-static char* print_token(char* text, size_t start_offset, size_t* current, size_t limit,
-                         const char* delimiters)
+static const char* get_last(const char* start, size_t len, const char* delimiters)
 {
-	int rc;
-	size_t len = strlen(text);
+	const char* last = NULL;
+	for (size_t x = 0; x < len; x++)
+	{
+		char c = start[x];
+		if (is_delimiter(c, delimiters))
+			last = &start[x];
+	}
+	return last;
+}
 
+static SSIZE_T next_delimiter(const char* text, size_t len, size_t max, const char* delimiters)
+{
+	if (len < max)
+		return -1;
+
+	const char* last = get_last(text, max, delimiters);
+	if (!last)
+		return -1;
+
+	return (SSIZE_T)(last - text);
+}
+
+static SSIZE_T forced_newline_at(const char* text, size_t len, size_t limit,
+                                 const char* force_newline)
+{
+	char d;
+	while ((d = *force_newline++) != '\0')
+	{
+		const char* tok = strchr(text, d);
+		if (tok)
+		{
+			const size_t offset = tok - text;
+			if ((offset > len) || (offset > limit))
+				continue;
+			return (SSIZE_T)(offset);
+		}
+	}
+	return -1;
+}
+
+static BOOL print_align(size_t start_offset, size_t* current)
+{
+	WINPR_ASSERT(current);
 	if (*current < start_offset)
 	{
-		rc = printf("%*c", (int)(start_offset - *current), ' ');
+		const int rc = printf("%*c", (int)(start_offset - *current), ' ');
 		if (rc < 0)
-			return NULL;
+			return FALSE;
 		*current += (size_t)rc;
 	}
+	return TRUE;
+}
 
-	if (*current + len > limit)
-	{
-		size_t x;
+static char* print_token(char* text, size_t start_offset, size_t* current, size_t limit,
+                         const char* delimiters, const char* force_newline)
+{
+	int rc;
+	const size_t tlen = strnlen(text, limit);
+	size_t len = tlen;
+	const SSIZE_T force_at = forced_newline_at(text, len, limit - *current, force_newline);
+	BOOL isForce = (force_at > 0);
 
-		for (x = MIN(len, limit - start_offset); x > 1; x--)
-		{
-			if (is_delimiter(delimiters, text[x]))
-			{
-				printf("%.*s\n", (int)x, text);
-				*current = 0;
-				return &text[x];
-			}
-		}
+	if (isForce)
+		len = MIN(len, (size_t)force_at);
 
+	if (!print_align(start_offset, current))
 		return NULL;
+
+	const SSIZE_T delim = next_delimiter(text, len, limit - *current, delimiters);
+	const BOOL isDelim = delim > 0;
+	if (isDelim)
+	{
+		len = MIN(len, (size_t)delim + 1);
 	}
 
-	rc = printf("%s", text);
+	rc = printf("%.*s", (int)len, text);
 	if (rc < 0)
 		return NULL;
+
+	if (isForce || isDelim)
+	{
+		printf("\n");
+		*current = 0;
+
+		const size_t offset = len + (isForce ? 1 : 0);
+		return &text[offset];
+	}
+
 	*current += (size_t)rc;
-	return NULL;
+
+	if (tlen == (size_t)rc)
+		return NULL;
+	return &text[(size_t)rc];
 }
 
 static size_t print_optionals(const char* text, size_t start_offset, size_t current)
 {
 	const size_t limit = 80;
 	char* str = _strdup(text);
-	char* cur = print_token(str, start_offset, &current, limit, "[], ");
+	char* cur = str;
 
-	while (cur)
-	{
-		cur++;
-		cur = print_token(cur, start_offset + 1, &current, limit, "[], ");
-	}
+	while ((cur = print_token(cur, start_offset + 1, &current, limit, "[], ", "\r\n")) != NULL)
+		;
 
 	free(str);
 	return current;
@@ -377,13 +433,10 @@ static size_t print_description(const char* text, size_t start_offset, size_t cu
 {
 	const size_t limit = 80;
 	char* str = _strdup(text);
-	char* cur = print_token(str, start_offset, &current, limit, " ");
+	char* cur = str;
 
-	while (cur)
-	{
-		cur++;
-		cur = print_token(cur, start_offset, &current, limit, " ");
-	}
+	while ((cur = print_token(cur, start_offset, &current, limit, " ", "\r\n")) != NULL)
+		;
 
 	free(str);
 	current += (size_t)printf("\n");
@@ -418,8 +471,17 @@ static void freerdp_client_print_command_line_args(COMMAND_LINE_ARGUMENT_A* parg
 		size_t pos = 0;
 		const size_t description_offset = 30 + 8;
 
-		if (arg->Flags & COMMAND_LINE_VALUE_BOOL)
-			rc = printf("    %s%s", arg->Default ? "-" : "+", arg->Name);
+		if (arg->Flags & (COMMAND_LINE_VALUE_BOOL | COMMAND_LINE_VALUE_FLAG))
+		{
+			if ((arg->Flags & ~COMMAND_LINE_VALUE_BOOL) == 0)
+				rc = printf("    %s%s", arg->Default ? "-" : "+", arg->Name);
+			else if ((arg->Flags & COMMAND_LINE_VALUE_OPTIONAL) != 0)
+				rc = printf("    [%s|/]%s", arg->Default ? "-" : "+", arg->Name);
+			else
+			{
+				rc = printf("    %s%s", arg->Default ? "-" : "+", arg->Name);
+			}
+		}
 		else
 			rc = printf("    /%s", arg->Name);
 
@@ -557,6 +619,7 @@ BOOL freerdp_client_print_command_line_help_ex(int argc, char** argv,
 	printf("    %s /u:JohnDoe /p:Pwd123! /vmconnect:C824F53E-95D2-46C6-9A18-23A5BB403532 "
 	       "/v:192.168.1.100\n",
 	       name);
+	printf("    %s /u:\\AzureAD\\user@corp.example /p:pwd /v:host\n", name);
 	printf("\n");
 	printf("Clipboard Redirection: +clipboard\n");
 	printf("\n");
@@ -1314,7 +1377,8 @@ BOOL freerdp_set_connection_type(rdpSettings* settings, UINT32 type)
 				return FALSE;
 				/* Automatically activate GFX and RFX codec support */
 #ifdef WITH_GFX_H264
-			if (!freerdp_settings_set_bool(settings, FreeRDP_GfxAVC444, TRUE) ||
+			if (!freerdp_settings_set_bool(settings, FreeRDP_GfxAVC444v2, TRUE) ||
+			    !freerdp_settings_set_bool(settings, FreeRDP_GfxAVC444, TRUE) ||
 			    !freerdp_settings_set_bool(settings, FreeRDP_GfxH264, TRUE))
 				return FALSE;
 #endif
@@ -2196,6 +2260,8 @@ static int parse_gfx_options(rdpSettings* settings, const COMMAND_LINE_ARGUMENT_
 			if ((rc == CHANNEL_RC_OK) && codecSelected)
 			{
 				if (!freerdp_settings_set_bool(settings, FreeRDP_GfxAVC444, GfxAVC444))
+					rc = COMMAND_LINE_ERROR;
+				if (!freerdp_settings_set_bool(settings, FreeRDP_GfxAVC444v2, GfxAVC444))
 					rc = COMMAND_LINE_ERROR;
 				if (!freerdp_settings_set_bool(settings, FreeRDP_GfxH264, GfxH264))
 					rc = COMMAND_LINE_ERROR;
@@ -5219,8 +5285,15 @@ static int freerdp_client_settings_parse_command_line_arguments_int(
 	return status;
 }
 
-static void argv_free(int argc, char* argv[])
+static void argv_free(int* pargc, char** pargv[])
 {
+	WINPR_ASSERT(pargc);
+	WINPR_ASSERT(pargv);
+	const int argc = *pargc;
+	char** argv = *pargv;
+	*pargc = 0;
+	*pargv = NULL;
+
 	if (!argv)
 		return;
 	for (int x = 0; x < argc; x++)
@@ -5303,7 +5376,7 @@ static BOOL args_from_fp(FILE* fp, int* aargc, char** aargv[], const char* file,
 fail:
 	fclose(fp);
 	if (!success)
-		argv_free(*aargc, *aargv);
+		argv_free(aargc, aargv);
 	return success;
 }
 
@@ -5357,7 +5430,7 @@ static BOOL args_from_env(const char* name, int* aargc, char** aargv[], const ch
 cleanup:
 	free(env);
 	if (!success)
-		argv_free(*aargc, *aargv);
+		argv_free(aargc, aargv);
 	return success;
 }
 
@@ -5421,7 +5494,7 @@ int freerdp_client_settings_parse_command_line_arguments_ex(
 	    settings, argc, argv, allowUnknown, largs, lcount, handle_option, handle_userdata);
 fail:
 	free(largs);
-	argv_free(aargc, aargv);
+	argv_free(&aargc, &aargv);
 	return res;
 }
 

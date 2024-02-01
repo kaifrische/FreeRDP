@@ -93,14 +93,11 @@ static HANDLE freerdp_peer_virtual_channel_open(freerdp_peer* client, const char
 		return (HANDLE)peerChannel;
 	}
 
-	peerChannel = (rdpPeerChannel*)calloc(1, sizeof(rdpPeerChannel));
+	peerChannel = server_channel_common_new(client, index, mcsChannel->ChannelId, 128, NULL, name);
 
 	if (peerChannel)
 	{
-		peerChannel->index = index;
-		peerChannel->client = client;
 		peerChannel->channelFlags = flags;
-		peerChannel->channelId = mcsChannel->ChannelId;
 		peerChannel->mcsChannel = mcsChannel;
 		mcsChannel->handle = (void*)peerChannel;
 	}
@@ -122,7 +119,7 @@ static BOOL freerdp_peer_virtual_channel_close(freerdp_peer* client, HANDLE hCha
 	mcsChannel = peerChannel->mcsChannel;
 	WINPR_ASSERT(mcsChannel);
 	mcsChannel->handle = NULL;
-	free(peerChannel);
+	server_channel_common_free(peerChannel);
 	return TRUE;
 }
 
@@ -1038,6 +1035,10 @@ static state_run_t peer_recv_callback_internal(rdpTransport* transport, wStream*
 				else
 					ret = STATE_RUN_SUCCESS;
 				free(monitors);
+
+				const size_t len = Stream_GetRemainingLength(s);
+				if (!state_run_failed(ret) && (len > 0))
+					ret = STATE_RUN_CONTINUE;
 			}
 			else
 			{
@@ -1162,6 +1163,10 @@ static state_run_t peer_recv_callback(rdpTransport* transport, wStream* s, void*
 	state_run_t rc = STATE_RUN_FAILED;
 	const size_t start = Stream_GetPosition(s);
 	const rdpContext* context = transport_get_context(transport);
+	DWORD level = WLOG_TRACE;
+	static wLog* log = NULL;
+	if (!log)
+		log = WLog_Get(TAG);
 
 	WINPR_ASSERT(context);
 	do
@@ -1173,9 +1178,13 @@ static state_run_t peer_recv_callback(rdpTransport* transport, wStream* s, void*
 			Stream_SetPosition(s, start);
 		rc = peer_recv_callback_internal(transport, s, extra);
 
-		WLog_VRB(TAG, "(server)[%s -> %s] current return %s [%" PRIuz " bytes not processed]", old,
-		         rdp_get_state_string(rdp), state_run_result_string(rc, buffer, sizeof(buffer)),
-		         Stream_GetRemainingLength(s));
+		const size_t len = Stream_GetRemainingLength(s);
+		if ((len > 0) && !state_run_continue(rc))
+			level = WLOG_WARN;
+		WLog_Print(log, level,
+		           "(server)[%s -> %s] current return %s [%" PRIuz " bytes not processed]", old,
+		           rdp_get_state_string(rdp), state_run_result_string(rc, buffer, sizeof(buffer)),
+		           len);
 	} while (state_run_continue(rc));
 
 	return rc;
@@ -1489,7 +1498,7 @@ void freerdp_peer_free(freerdp_peer* client)
 	free(client);
 }
 
-static BOOL frerdp_peer_transport_setup(freerdp_peer* client)
+static BOOL freerdp_peer_transport_setup(freerdp_peer* client)
 {
 	rdpRdp* rdp;
 
@@ -1574,7 +1583,7 @@ BOOL freerdp_peer_context_new_ex(freerdp_peer* client, const rdpSettings* settin
 		goto fail;
 	}
 
-	if (!frerdp_peer_transport_setup(client))
+	if (!freerdp_peer_transport_setup(client))
 		goto fail;
 
 	client->IsWriteBlocked = freerdp_peer_is_write_blocked;

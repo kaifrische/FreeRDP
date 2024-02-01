@@ -5,7 +5,7 @@
 #
 # Bugs and comments https://github.com/FreeRDP/FreeRDP/issues
 
-
+%define _build_id_links none
 %define   INSTALL_PREFIX /opt/freerdp-nightly/
 
 # do not add provides for libs provided by this package
@@ -14,7 +14,7 @@
 %global __provides_exclude_from ^%{INSTALL_PREFIX}.*$
 
 # do not require our own libs
-%global __requires_exclude ^(libfreerdp.*|libwinpr).*$
+%global __requires_exclude ^(libfreerdp.*|libwinpr|librdtk|libuwac).*$
 
 Name:           freerdp-nightly
 Version:        3.0
@@ -25,8 +25,8 @@ Url:            http://www.freerdp.com
 Group:          Productivity/Networking/Other
 Source0:        %{name}-%{version}.tar.bz2
 Source1:        source_version
-BuildRequires:   gcc-c++
-BuildRequires:  cmake >= 2.8.12
+BuildRequires: gcc-c++
+BuildRequires: cmake >= 3.13.0
 BuildRequires: libxkbfile-devel
 BuildRequires: libX11-devel
 BuildRequires: libXrandr-devel
@@ -54,6 +54,7 @@ BuildRequires: opus-devel
 %if %{defined suse_version}
 BuildRequires: libSDL2-devel
 BuildRequires: libSDL2_ttf-devel
+BuildRequires: libSDL2_image-devel
 BuildRequires: docbook-xsl-stylesheets
 BuildRequires: libxslt-tools
 BuildRequires: pkg-config
@@ -75,6 +76,7 @@ BuildRequires: libfuse3-dev
 %if 0%{?fedora} >= 21 || 0%{?rhel} >= 7
 BuildRequires: SDL2-devel
 BuildRequires: SDL2_ttf-devel
+BuildRequires: SDL2_image-devel
 BuildRequires: docbook-style-xsl
 BuildRequires: libxslt
 BuildRequires: pkgconfig
@@ -100,7 +102,7 @@ BuildRequires: libwayland-client-devel
 %endif
 
 %if 0%{?fedora} >= 36 || 0%{?rhel} >= 9
-BuildRequires: ffmpeg-free-devel
+BuildRequires: (ffmpeg-free-devel or ffmpeg-devel)
 %endif
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
@@ -134,6 +136,11 @@ cp %{_topdir}/SOURCES/source_version freerdp-nightly-%{version}/.source_version
         -DWITH_PCSC=ON \
         -DWITH_JPEG=ON \
         -DWITH_OPUS=ON \
+        -DSDL_USE_COMPILED_RESOURCES=OFF \
+        -DWITH_SDL_IMAGE_DIALOGS=ON \
+        -DWITH_BINARY_VERSIONING=ON \
+        -DRDTK_FORCE_STATIC_BUILD=ON \
+        -DUWAC_FORCE_STATIC_BUILD=ON \
 %if 0%{?fedora} >= 36 || 0%{?rhel} >= 9 || 0%{?suse_version}
         -DWITH_FFMPEG=ON \
         -DWITH_DSP_FFMPEG=ON \
@@ -188,15 +195,17 @@ export NO_BRP_CHECK_RPATH true
 %dir %{INSTALL_PREFIX}/share/man/
 %dir %{INSTALL_PREFIX}/share/man/man1
 %dir %{INSTALL_PREFIX}/share/man/man7
+%dir %{INSTALL_PREFIX}/share/FreeRDP3
+%dir %{INSTALL_PREFIX}/share/FreeRDP3/fonts
+%dir %{INSTALL_PREFIX}/share/FreeRDP3/images
 %dir %{INSTALL_PREFIX}/%{_lib}/freerdp3/proxy/
 %{INSTALL_PREFIX}/%{_lib}/*.so.*
 %{INSTALL_PREFIX}/%{_lib}/freerdp3/proxy/*.so
-%{INSTALL_PREFIX}/bin/
-%{INSTALL_PREFIX}/share/man/man1/xfreerdp.1*
-%{INSTALL_PREFIX}/share/man/man1/freerdp-shadow-cli.1*
-%{INSTALL_PREFIX}/share/man/man1/winpr-makecert.1*
-%{INSTALL_PREFIX}/share/man/man1/winpr-hash.1*
-%{INSTALL_PREFIX}/share/man/man7/wlog.7*
+%{INSTALL_PREFIX}/bin/*
+%{INSTALL_PREFIX}/share/man/man1/*
+%{INSTALL_PREFIX}/share/man/man7/*
+%{INSTALL_PREFIX}/share/FreeRDP3/fonts/*
+%{INSTALL_PREFIX}/share/FreeRDP3/images/*
 
 %files devel
 %defattr(-,root,root)
@@ -207,11 +216,18 @@ export NO_BRP_CHECK_RPATH true
 
 %post -p /sbin/ldconfig
 
-
 %postun -p /sbin/ldconfig
 
-
 %changelog
+* Thu Dec 21 2023 FreeRDP Team <team@freerdp.com> - 3.0.0-2
+- Add new manpages
+- Use new CMake options
+* Wed Dec 20 2023 FreeRDP Team <team@freerdp.com> - 3.0.0-2
+- Exclude libuwac and librdtk
+- Allow ffmpeg-devel or ffmpeg-free-devel as dependency
+* Tue Dec 19 2023 FreeRDP Team <team@freerdp.com> - 3.0.0-1
+- Disable build-id
+- Update build dependencies
 * Wed Nov 15 2023 FreeRDP Team <team@freerdp.com> - 3.0.0-0
 - Update build dependencies
 * Wed Feb 7 2018 FreeRDP Team <team@freerdp.com> - 2.0.0-0

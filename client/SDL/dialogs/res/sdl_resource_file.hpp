@@ -1,8 +1,7 @@
 /**
  * FreeRDP: A Remote Desktop Protocol Implementation
- * FreeRDP Proxy Server Session Capture Module
  *
- * Copyright 2019 Kobi Mizrachi <kmizrachi18@gmail.com>
+ * Copyright 2023 Armin Novak <armin.novak@thincast.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#include <freerdp/types.h>
+#include <string>
+#include <vector>
 
-typedef struct capture_config
+class SDLResourceFile
 {
-	UINT16 port;
-	char* host;
-} captureConfig;
+  public:
+	SDLResourceFile(const std::string& type, const std::string& id,
+	                const std::vector<unsigned char>& data);
+	virtual ~SDLResourceFile() = default;
 
-BOOL capture_plugin_init_config(captureConfig* config);
-void capture_plugin_config_free_internal(captureConfig* config);
+  private:
+	SDLResourceFile(const SDLResourceFile& other) = delete;
+	SDLResourceFile(const SDLResourceFile&& other) = delete;
+};

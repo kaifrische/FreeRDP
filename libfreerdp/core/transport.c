@@ -1218,6 +1218,24 @@ fail:
 	return status;
 }
 
+BOOL transport_get_public_key(rdpTransport* transport, const BYTE** data, DWORD* length)
+{
+	return IFCALLRESULT(FALSE, transport->io.GetPublicKey, transport, data, length);
+}
+
+static BOOL transport_default_get_public_key(rdpTransport* transport, const BYTE** data,
+                                             DWORD* length)
+{
+	rdpTls* tls = transport_get_tls(transport);
+	if (!tls)
+		return FALSE;
+
+	*data = tls->PublicKey;
+	*length = tls->PublicKeyLength;
+
+	return TRUE;
+}
+
 DWORD transport_get_event_handles(rdpTransport* transport, HANDLE* events, DWORD count)
 {
 	DWORD nCount = 0; /* always the reread Event */
@@ -1429,6 +1447,13 @@ BOOL transport_set_blocking_mode(rdpTransport* transport, BOOL blocking)
 {
 	WINPR_ASSERT(transport);
 
+	return IFCALLRESULT(FALSE, transport->io.SetBlockingMode, transport, blocking);
+}
+
+static BOOL transport_default_set_blocking_mode(rdpTransport* transport, BOOL blocking)
+{
+	WINPR_ASSERT(transport);
+
 	transport->blocking = blocking;
 
 	if (transport->frontBio)
@@ -1535,6 +1560,8 @@ rdpTransport* transport_new(rdpContext* context)
 	transport->io.ReadPdu = transport_default_read_pdu;
 	transport->io.WritePdu = transport_default_write;
 	transport->io.ReadBytes = transport_read_layer;
+	transport->io.GetPublicKey = transport_default_get_public_key;
+	transport->io.SetBlockingMode = transport_default_set_blocking_mode;
 
 	transport->context = context;
 	transport->ReceivePool = StreamPool_New(TRUE, BUFFER_SIZE);

@@ -293,6 +293,9 @@ UINT sdlDispContext::sendLayout(const rdpMonitor* monitors, size_t nmonitors)
 
 BOOL sdlDispContext::addTimer()
 {
+	if (SDL_WasInit(SDL_INIT_TIMER) == 0)
+		return FALSE;
+
 	SDL_RemoveTimer(_timer);
 	WLog_Print(_sdl->log, WLOG_TRACE, "adding new display check timer");
 
@@ -330,11 +333,19 @@ BOOL sdlDispContext::handle_window_event(const SDL_WindowEvent* ev)
 {
 	WINPR_ASSERT(ev);
 
+	auto bordered = freerdp_settings_get_bool(_sdl->context()->settings, FreeRDP_Decorations)
+	                    ? SDL_TRUE
+	                    : SDL_FALSE;
+	auto window = SDL_GetWindowFromID(ev->windowID);
+	if (window)
+		SDL_SetWindowBordered(window, bordered);
+
 	switch (ev->event)
 	{
 		case SDL_WINDOWEVENT_HIDDEN:
 		case SDL_WINDOWEVENT_MINIMIZED:
 			gdi_send_suppress_output(_sdl->context()->gdi, TRUE);
+
 			return TRUE;
 
 		case SDL_WINDOWEVENT_EXPOSED:

@@ -71,7 +71,8 @@ struct rdp_settings
 	SETTINGS_DEPRECATED(ALIGN64 char* AcceptedCert);            /* 27 */
 	SETTINGS_DEPRECATED(ALIGN64 UINT32 AcceptedCertLength);     /* 28 */
 	SETTINGS_DEPRECATED(ALIGN64 char* UserSpecifiedServerName); /* 29 */
-	UINT64 padding0064[64 - 30];                                /* 30 */
+	SETTINGS_DEPRECATED(ALIGN64 char* AadServerHostname);       /* 30 */
+	UINT64 padding0064[64 - 31];                                /* 31 */
 	/* resource management related options */
 	SETTINGS_DEPRECATED(ALIGN64 UINT32 ThreadingFlags); /* 64 */
 
@@ -769,7 +770,8 @@ struct rdp_settings
 	SETTINGS_DEPRECATED(ALIGN64 UINT32 DynamicChannelArraySize);   /* 5057 */
 	SETTINGS_DEPRECATED(ALIGN64 ADDIN_ARGV** DynamicChannelArray); /* 5058 */
 	SETTINGS_DEPRECATED(ALIGN64 BOOL SupportDynamicChannels);      /* 5059 */
-	UINT64 padding5184[5184 - 5060];                               /* 5060 */
+	SETTINGS_DEPRECATED(ALIGN64 BOOL SynchronousDynamicChannels);  /* 5060 */
+	UINT64 padding5184[5184 - 5061];                               /* 5061 */
 
 	SETTINGS_DEPRECATED(ALIGN64 BOOL SupportEchoChannel);        /* 5184 */
 	SETTINGS_DEPRECATED(ALIGN64 BOOL SupportDisplayControl);     /* 5185 */

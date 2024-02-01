@@ -19,6 +19,7 @@
  */
 
 #include <freerdp/config.h>
+#include <freerdp/version.h>
 
 #include "../settings.h"
 
@@ -602,20 +603,20 @@ static BOOL arm_treat_azureInstanceNetworkMetadata(const char* metadata, rdpSett
 		return FALSE;
 	}
 
-	const cJSON* interface = cJSON_GetObjectItem(json, "interface");
-	if (!interface)
+	const cJSON* iface = cJSON_GetObjectItem(json, "interface");
+	if (!iface)
 	{
 		ret = TRUE;
 		goto out;
 	}
 
-	if (!cJSON_IsArray(interface))
+	if (!cJSON_IsArray(iface))
 	{
 		WLog_ERR(TAG, "expecting interface to be an Array");
 		goto out;
 	}
 
-	int interfaceSz = cJSON_GetArraySize(interface);
+	int interfaceSz = cJSON_GetArraySize(iface);
 	if (interfaceSz == 0)
 	{
 		WLog_WARN(TAG, "no addresses in azure instance metadata");
@@ -625,7 +626,7 @@ static BOOL arm_treat_azureInstanceNetworkMetadata(const char* metadata, rdpSett
 
 	for (int i = 0; i < interfaceSz; i++)
 	{
-		const cJSON* interN = cJSON_GetArrayItem(interface, i);
+		const cJSON* interN = cJSON_GetArrayItem(iface, i);
 		if (!interN)
 			continue;
 
@@ -871,8 +872,8 @@ static BOOL arm_handle_request(rdpArm* arm, BOOL* retry, DWORD timeout)
 	    !http_context_set_cache_control(arm->http, "no-cache") ||
 	    !http_context_set_pragma(arm->http, "no-cache") ||
 	    !http_context_set_connection(arm->http, "Keep-Alive") ||
-	    !http_context_set_user_agent(arm->http, "FreeRDP/3.0") ||
-	    !http_context_set_x_ms_user_agent(arm->http, "FreeRDP/3.0") ||
+	    !http_context_set_user_agent(arm->http, FREERDP_USER_AGENT) ||
+	    !http_context_set_x_ms_user_agent(arm->http, FREERDP_USER_AGENT) ||
 	    !http_context_set_host(arm->http, freerdp_settings_get_string(arm->context->settings,
 	                                                                  FreeRDP_GatewayHostname)))
 		goto arm_error;
